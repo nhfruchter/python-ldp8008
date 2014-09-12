@@ -2,19 +2,32 @@
 import sys
 import time
 from multiprocessing import Process, Value
-
 import fontv
 import ldp
 
 class SignDisplayError(Exception): pass
 
-class Sign(object):
-    """Class that represents a physical LED sign."""
+class Sign(object):    
+    """Class that represents a physical LED sign.
+    
+    >>> s = sign.Sign()
+    >>> # You can scroll an arbitrarily long string.
+    >>> s.scrollPut("1234567890abcdefgh  ")
+    >>> s.scroll()
+    >>> # Or a fixed-width string.
+    >>> s.stop()
+    >>> s.staticPut("Testing")
+    >>> s.static()
+    
+    """
     
     # Display colors
     RED = 1
     GREEN = 2
     ORANGE = 3
+    
+    # Display color names
+    COLORNAMES = {1: 'red', 2: 'green', 3: 'orange', 4: 'blank'}
     
     def __init__(self, width=80, height=8):
         self.WIDTH, self.HEIGHT = width, height
@@ -24,7 +37,13 @@ class Sign(object):
         self.displayProcess = False
         self._continue = Value('b', 0)
         
+        self.currentMessage = ""
+        self.currentColor = 4
+        
         ldp.init()
+        
+    def getColor(self):
+        return self.COLORNAMES[self.currentColor]
         
     ###### Sign hardware functions: general ######
         
@@ -54,7 +73,6 @@ class Sign(object):
     	for row in range(self.HEIGHT):
     		for col in range(self.WIDTH-1,0,-1):
     			self.buffer[row][col] = self.buffer[row][col-1]
-                            
                 
     ###### Display functions ######    
                 
@@ -85,7 +103,7 @@ class Sign(object):
     def scrollLoop(self):   
         """Continually updates bitmap to scroll left to right. Usually run in a
         thread; don't call directly unless you're testing."""     
-        
+            
         while self._continue.value == 1:
             for col in range(len(self.dotArray[0])):
                 for row in range(self.HEIGHT):
@@ -99,12 +117,15 @@ class Sign(object):
         that will display for the specified number of seconds, or until 
         `self.stop` is called."""
         
+        empty = [[0 for i in xrange(self.WIDTH)] for i in xrange(self.HEIGHT)]    
+        
         if self.displayProcess:
             raise SignDisplayError("There is already a display loop running.")
+        elif not hasattr(self, "dotArray") or not self.dotArray:
+            raise SignDisplayError("Please put text on the sign using scrollPut.")
         else: 
             # Clear the buffer from `put` because the buffer is continually
             # updated during the scroll process.
-            self.clearbuffer()
             if interval == -1:
                 self._continue = Value('b', 1) # run flag
                 self.displayProcess = Process(target=self.scrollLoop) # create thread
@@ -115,9 +136,12 @@ class Sign(object):
         seconds (`interval = -1` is forever). This spawns a separate thread 
         that will display for the specified number of seconds, or until 
         `self.stop` is called."""
-        
+        empty = [[0 for i in xrange(self.WIDTH)] for i in xrange(self.HEIGHT)]    
         if self.displayProcess:
             raise SignDisplayError("There is already a display loop running.")
+        elif self.buffer == empty:
+            # Do nothing, empty sign.
+            pass
         else: 
             if interval == -1:
                 self._continue = Value('b', 1) # run flag
@@ -125,6 +149,8 @@ class Sign(object):
                 self.displayProcess.start() # start display
                 
     def stop(self):
+        """Clear the buffer, display, and other associated state variables."""
+        
         if not self.displayProcess:
             raise Exception("There is no display loop running.")
         else:
@@ -132,15 +158,16 @@ class Sign(object):
             self.displayProcess.join() # stop the thread
             self.displayProcess = False # remove the subprocess pointer
             self.clear() # clear the hardware buffer
+            self.currentMessage = "" # clear the current message string
                 
     ###### Write functions ######                   
-
-    def put(self, text, color=RED, center=True):
+    def drawText(self, text, color):
         """Push the string `text`, to be displayed in `color`, to the software
         bitmap buffer.  This can later be displayed by calling `self.display`."""
         
         # Initialize sign
-        text = str(text)
+        text = str(text).encode('ascii', 'ignore')
+        self.clearbuffer()
         
         # Get the ascii values to lookup bitmap letters in the font
         inputArray = [ord(char) for char in text]
@@ -161,14 +188,19 @@ class Sign(object):
                         dotArray[row].append(0)
                     else:
                         dotArray[row].append(color)
+
+        return dotArray                
+        
+    def staticPut(self, text, color=RED):
+        """Draw the formatted text bitmap to buffer for a static display."""                            
+        dotArray = self.drawText(text, color)
         
         # Width of raw message bitmap, so we can do some bounds checking
         totalWidth = len(dotArray[0])                
+        
         if totalWidth > self.WIDTH:
-            raise SignDisplayError("Message larger than display.")
-        else:
-            # Needed for scrolling calculations.
             self.dotArray = dotArray    
+            raise ValueError("Message larger than display. Maybe try scrolling instead?")
         
         # Create offset to center message if we want
         offset = int((self.WIDTH - totalWidth) / 2)
@@ -183,3 +215,17 @@ class Sign(object):
         	for row in range(self.HEIGHT):
         		# copy the current dotarray column values to the first column in the matrix
         		self.buffer[row][offset+col] = (dotArray[row][col])
+                
+        self.currentMessage = text        
+        self.currentColor = color
+        
+    def scrollPut(self, text, color=RED):
+        """Generate the formatted text bitmap to buffer for a scrolling display.
+        Drawing is handled by the display function here as it continually updates 
+        for scrolling purposes."""                            
+        
+        # Place to hand off to display function
+        self.dotArray = self.drawText(text, color)
+        self.currentMessage = text        
+        self.currentColor = color
+        

@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'LondonFontRegular';
+    src: url('londonfont.eot');
+    src: url('londonfont.eot') format('embedded-opentype'),
+         url('londonfont.woff2') format('woff2'),
+         url('londonfont.woff') format('woff'),
+         url('londonfont.ttf') format('truetype'),
+         url('londonfont.svg#LondonFontRegular') format('svg');
+}

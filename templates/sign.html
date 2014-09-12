@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Fancy LED Sign</title>
+	<link rel="stylesheet" href="{{url_for('static', filename='ledfont/font.css')}}" type="text/css">
+	<style type="text/css" media="screen">
+	body {
+		font: 1.25em Helvetica, Arial, sans-serif;
+	}
+	section {
+		width: 70%;
+		margin: 0 auto;
+	}
+	section#errors p { color: red; }
+	section#sign-contents {
+		font: 4vw 'LondonFontRegular', monospace;
+		text-align: center;
+		height: 1.8em;
+		width: 70%;
+		background: #222;
+		color: #fff;
+		letter-spacing: 5px;
+	}
+	input, select { border: 1px solid #000; padding: 5px; font-size: 1.5em;}
+	input[type="text"] { width: 75%;}
+	.red { color: #D01B12; }
+	.orange { color: #FFBF00; }
+	.green { color: #ABE30C; }
+	</style>
+</head>
+<body>
+	{% if err %}
+	<section id="errors">
+		<p>{{ err }}</p>
+	</section>	
+	{% endif %}
+	
+	<section id="sign-contents">
+		{% if msg %}
+		<h1 class="{{color}}">{{ msg }}</h1>
+		{% else %}
+		<h1>[sign blank]</h1>
+		{% endif %}
+	</section>
+	
+	<section id="sign-update">	
+		<p>Input a new message. The message will scroll if larger than the width of the display.</p>
+		<form method="post" action="/update">
+			<p>
+				<input type="text" name="msg" id="msg" /> 
+				<select name="color">
+					<option value="1">Red</option>
+					<option value="2">Green</option>
+					<option value="3">Orange</option>
+				</select>	
+			</p>
+
+			<p>
+				<input type="submit" name="static" value="Display" />
+				<input type="submit" name="scroll" value="Scroll" />
+			</p>
+		</form>
+		<p><a href="/clear">Clear Sign</a></p>
+	</section>	
+</body>	
+</html>		
