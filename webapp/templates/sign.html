@@ -37,7 +37,7 @@
 	
 	<section id="sign-contents">
 		{% if msg %}
-		<h1 class="{{color}}">{{ msg }}</h1>
+		<h1 class="{{config.sign.getColor()}}">{{ config.sign.currentMessage }} </h1>
 		{% else %}
 		<h1>[sign blank]</h1>
 		{% endif %}
